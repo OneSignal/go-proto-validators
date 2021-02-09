@@ -8,4 +8,5 @@
 # Build and script artefacts.
 deps/
 bazel-*
-
+main
+github.com/

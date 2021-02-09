@@ -19,7 +19,7 @@ gazelle:
 
 install:
 	@echo "--- Installing 'govalidators' binary to GOBIN."
-	go install github.com/mwitkow/go-proto-validators/protoc-gen-govalidators
+	go install github.com/OneSignal/go-proto-validators/protoc-gen-govalidators
 
 regenerate_test_gogo: prepare_deps install
 	@echo "--- Regenerating test .proto files with gogo imports"
@@ -42,11 +42,12 @@ regenerate_test_golang: prepare_deps install
 regenerate_example: prepare_deps install
 	@echo "--- Regenerating example directory"
 	export PATH=$(extra_path):$${PATH}; protoc  \
+	    -I ../schema.protobuf/proto \
 		--proto_path=deps \
 		--proto_path=deps/include \
 		--proto_path=. \
 		--go_out=. \
-		--govalidators_out=. examples/*.proto
+		--govalidators_out=. examples/uuid.proto
 
 test: regenerate_test_gogo regenerate_test_golang
 	@echo "Running tests"

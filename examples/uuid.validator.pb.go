@@ -7,9 +7,11 @@ import (
 	fmt "fmt"
 	math "math"
 	proto "github.com/golang/protobuf/proto"
-	_ "github.com/mwitkow/go-proto-validators"
+	_ "github.com/OneSignal/go-proto-validators"
+	_ "github.com/OneSignal/schema.protobuf/gen/go/uuid/v1"
 	regexp "regexp"
-	github_com_mwitkow_go_proto_validators "github.com/mwitkow/go-proto-validators"
+	github_com_OneSignal_go_proto_validators "github.com/OneSignal/go-proto-validators"
+	github_com_gofrs_uuid "github.com/gofrs/uuid"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -21,10 +23,30 @@ var _regex_UUIDMsg_UserId = regexp.MustCompile(`^([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-
 
 func (this *UUIDMsg) Validate() error {
 	if !_regex_UUIDMsg_UserId.MatchString(this.UserId) {
-		return github_com_mwitkow_go_proto_validators.FieldError("UserId", fmt.Errorf(`value '%v' must be a string conforming to regex "^([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[4][a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12})?$"`, this.UserId))
+		return github_com_OneSignal_go_proto_validators.FieldError("UserId", fmt.Errorf(`value '%v' must be a string conforming to regex "^([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[4][a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12})?$"`, this.UserId))
 	}
 	if this.UserId == "" {
-		return github_com_mwitkow_go_proto_validators.FieldError("UserId", fmt.Errorf(`value '%v' must not be an empty string`, this.UserId))
+		return github_com_OneSignal_go_proto_validators.FieldError("UserId", fmt.Errorf(`value '%v' must not be an empty string`, this.UserId))
 	}
+	if nil == this.Xyz {
+		return github_com_OneSignal_go_proto_validators.FieldError("Xyz", fmt.Errorf("nil UUID"))
+	} else {
+		if _, err := github_com_gofrs_uuid.FromBytes(this.Xyz.Data); err != nil {
+			return github_com_OneSignal_go_proto_validators.FieldError("Xyz", err)
+		}
+	}
+	if this.Xyz != nil {
+		if err := github_com_OneSignal_go_proto_validators.CallValidatorIfExists(this.Xyz); err != nil {
+			return github_com_OneSignal_go_proto_validators.FieldError("Xyz", err)
+		}
+	}
+	if this.Abc != nil {
+		if err := github_com_OneSignal_go_proto_validators.CallValidatorIfExists(this.Abc); err != nil {
+			return github_com_OneSignal_go_proto_validators.FieldError("Abc", err)
+		}
+	}
+	return nil
+}
+func (this *Foo) Validate() error {
 	return nil
 }
