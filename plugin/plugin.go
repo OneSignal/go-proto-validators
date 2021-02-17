@@ -162,21 +162,21 @@ func (p *plugin) isSupportedFloat(field *descriptor.FieldDescriptorProto) bool {
 func (p *plugin) generateRegexVars(file *generator.FileDescriptor, message *generator.Descriptor) {
 	ccTypeName := generator.CamelCaseSlice(message.TypeName())
 	for _, field := range message.Field {
-		validator := getFieldValidatorIfAny(field)
-		if validator != nil {
+		v := getFieldValidatorIfAny(field)
+		if v != nil {
 			fieldName := p.GetOneOfFieldName(message, field)
-			if validator.Regex != nil && validator.UuidVer != nil {
-				fmt.Fprintf(os.Stderr, "WARNING: regex and uuid validator is set for field %v.%v, only one of them can be set. Regex and UUID validator is ignored for this field.", ccTypeName, fieldName)
-			} else if validator.UuidVer != nil {
-				uuid, err := getUUIDRegex(validator.UuidVer)
+			if v.Regex != nil && v.UuidVer != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: regex and uuid v is set for field %v.%v, only one of them can be set. Regex and UUID v is ignored for this field.", ccTypeName, fieldName)
+			} else if v.UuidVer != nil {
+				uuid, err := getUUIDRegex(&v.UuidVer.Value)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "WARNING: field %v.%v error %s.\n", ccTypeName, fieldName, err)
 				} else {
-					validator.Regex = &uuid
-					p.P(`var `, p.regexName(ccTypeName, fieldName), ` = `, p.regexPkg.Use(), `.MustCompile(`, "`", *validator.Regex, "`", `)`)
+					v.Regex = &validator.StringValue{Value: uuid}
+					p.P(`var `, p.regexName(ccTypeName, fieldName), ` = `, p.regexPkg.Use(), `.MustCompile(`, "`", v.Regex.Value, "`", `)`)
 				}
-			} else if validator.Regex != nil {
-				p.P(`var `, p.regexName(ccTypeName, fieldName), ` = `, p.regexPkg.Use(), `.MustCompile(`, "`", *validator.Regex, "`", `)`)
+			} else if v.Regex != nil {
+				p.P(`var `, p.regexName(ccTypeName, fieldName), ` = `, p.regexPkg.Use(), `.MustCompile(`, "`", v.Regex.Value, "`", `)`)
 			}
 		}
 	}
@@ -422,17 +422,17 @@ func (p *plugin) generateProto3Message(file *generator.FileDescriptor, message *
 
 func (p *plugin) generateIntValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
 	if fv.IntGt != nil {
-		p.P(`if !(`, variableName, ` > `, fv.IntGt, `) {`)
+		p.P(`if !(`, variableName, ` > `, &(fv.IntGt.Value), `) {`)
 		p.In()
-		errorStr := fmt.Sprintf(`be greater than '%d'`, fv.GetIntGt())
+		errorStr := fmt.Sprintf(`be greater than '%d'`, fv.GetIntGt().GetValue())
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
 	if fv.IntLt != nil {
-		p.P(`if !(`, variableName, ` < `, fv.IntLt, `) {`)
+		p.P(`if !(`, variableName, ` < `, &(fv.IntLt.Value), `) {`)
 		p.In()
-		errorStr := fmt.Sprintf(`be less than '%d'`, fv.GetIntLt())
+		errorStr := fmt.Sprintf(`be less than '%d'`, fv.GetIntLt().GetValue())
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
@@ -455,27 +455,27 @@ func (p *plugin) generateEnumValidator(
 
 func (p *plugin) generateLengthValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
 	if fv.LengthGt != nil {
-		p.P(`if !( len(`, variableName, `) > `, fv.LengthGt, `) {`)
+		p.P(`if !( len(`, variableName, `) > `, &(fv.LengthGt.Value), `) {`)
 		p.In()
-		errorStr := fmt.Sprintf(`have a length greater than '%d'`, fv.GetLengthGt())
+		errorStr := fmt.Sprintf(`have a length greater than '%d'`, fv.GetLengthGt().GetValue())
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
 
 	if fv.LengthLt != nil {
-		p.P(`if !( len(`, variableName, `) < `, fv.LengthLt, `) {`)
+		p.P(`if !( len(`, variableName, `) < `, &(fv.LengthLt.Value), `) {`)
 		p.In()
-		errorStr := fmt.Sprintf(`have a length smaller than '%d'`, fv.GetLengthLt())
+		errorStr := fmt.Sprintf(`have a length smaller than '%d'`, fv.GetLengthLt().GetValue())
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
 
 	if fv.LengthEq != nil {
-		p.P(`if !( len(`, variableName, `) == `, fv.LengthEq, `) {`)
+		p.P(`if !( len(`, variableName, `) == `, &(fv.LengthEq.Value), `) {`)
 		p.In()
-		errorStr := fmt.Sprintf(`have a length equal to '%d'`, fv.GetLengthEq())
+		errorStr := fmt.Sprintf(`have a length equal to '%d'`, fv.GetLengthEq().GetValue())
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
@@ -492,12 +492,12 @@ func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, 
 	}
 	if fv.FloatLt != nil && fv.FloatLte != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: field %v.%v has both 'float_lt' and 'float_lte' constraints, only the strictest will be used.", ccTypeName, fieldName)
-		strictLimit := fv.GetFloatLt()
+		strictLimit := fv.GetFloatLt().GetValue()
 		if fv.FloatEpsilon != nil {
-			strictLimit += fv.GetFloatEpsilon()
+			strictLimit += fv.GetFloatEpsilon().GetValue()
 		}
 
-		if fv.GetFloatLte() < strictLimit {
+		if fv.GetFloatLte().GetValue() < strictLimit {
 			upperIsStrict = false
 		}
 	} else if fv.FloatLte != nil {
@@ -506,12 +506,12 @@ func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, 
 
 	if fv.FloatGt != nil && fv.FloatGte != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: field %v.%v has both 'float_gt' and 'float_gte' constraints, only the strictest will be used.", ccTypeName, fieldName)
-		strictLimit := fv.GetFloatGt()
+		strictLimit := fv.GetFloatGt().GetValue()
 		if fv.FloatEpsilon != nil {
-			strictLimit -= fv.GetFloatEpsilon()
+			strictLimit -= fv.GetFloatEpsilon().GetValue()
 		}
 
-		if fv.GetFloatGte() > strictLimit {
+		if fv.GetFloatGte().GetValue() > strictLimit {
 			lowerIsStrict = false
 		}
 	} else if fv.FloatGte != nil {
@@ -524,15 +524,15 @@ func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, 
 	if fv.FloatGt != nil || fv.FloatGte != nil {
 		compareStr = fmt.Sprint(`if !(`, variableName)
 		if lowerIsStrict {
-			errorStr = fmt.Sprintf(`be strictly greater than '%g'`, fv.GetFloatGt())
+			errorStr = fmt.Sprintf(`be strictly greater than '%g'`, fv.GetFloatGt().GetValue())
 			if fv.FloatEpsilon != nil {
-				errorStr += fmt.Sprintf(` with a tolerance of '%g'`, fv.GetFloatEpsilon())
-				compareStr += fmt.Sprint(` + `, fv.GetFloatEpsilon())
+				errorStr += fmt.Sprintf(` with a tolerance of '%g'`, fv.GetFloatEpsilon().GetValue())
+				compareStr += fmt.Sprint(` + `, fv.GetFloatEpsilon().GetValue())
 			}
-			compareStr += fmt.Sprint(` > `, fv.GetFloatGt(), `) {`)
+			compareStr += fmt.Sprint(` > `, fv.GetFloatGt().GetValue(), `) {`)
 		} else {
-			errorStr = fmt.Sprintf(`be greater than or equal to '%g'`, fv.GetFloatGte())
-			compareStr += fmt.Sprint(` >= `, fv.GetFloatGte(), `) {`)
+			errorStr = fmt.Sprintf(`be greater than or equal to '%g'`, fv.GetFloatGte().GetValue())
+			compareStr += fmt.Sprint(` >= `, fv.GetFloatGte().GetValue(), `) {`)
 		}
 		p.P(compareStr)
 		p.In()
@@ -544,15 +544,15 @@ func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, 
 	if fv.FloatLt != nil || fv.FloatLte != nil {
 		compareStr = fmt.Sprint(`if !(`, variableName)
 		if upperIsStrict {
-			errorStr = fmt.Sprintf(`be strictly lower than '%g'`, fv.GetFloatLt())
+			errorStr = fmt.Sprintf(`be strictly lower than '%g'`, fv.GetFloatLt().GetValue())
 			if fv.FloatEpsilon != nil {
-				errorStr += fmt.Sprintf(` with a tolerance of '%g'`, fv.GetFloatEpsilon())
-				compareStr += fmt.Sprint(` - `, fv.GetFloatEpsilon())
+				errorStr += fmt.Sprintf(` with a tolerance of '%g'`, fv.GetFloatEpsilon().GetValue())
+				compareStr += fmt.Sprint(` - `, fv.GetFloatEpsilon().GetValue())
 			}
-			compareStr += fmt.Sprint(` < `, fv.GetFloatLt(), `) {`)
+			compareStr += fmt.Sprint(` < `, fv.GetFloatLt().GetValue(), `) {`)
 		} else {
-			errorStr = fmt.Sprintf(`be lower than or equal to '%g'`, fv.GetFloatLte())
-			compareStr += fmt.Sprint(` <= `, fv.GetFloatLte(), `) {`)
+			errorStr = fmt.Sprintf(`be lower than or equal to '%g'`, fv.GetFloatLte().GetValue())
+			compareStr += fmt.Sprint(` <= `, fv.GetFloatLte().GetValue(), `) {`)
 		}
 		p.P(compareStr)
 		p.In()
@@ -580,22 +580,22 @@ func getUUIDRegex(version *int32) (string, error) {
 func (p *plugin) generateStringValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
 	if fv.Regex != nil || fv.UuidVer != nil {
 		if fv.UuidVer != nil {
-			uuid, err := getUUIDRegex(fv.UuidVer)
+			uuid, err := getUUIDRegex(&fv.UuidVer.Value)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: field %v.%v error %s.\n", ccTypeName, fieldName, err)
 			} else {
-				fv.Regex = &uuid
+				fv.Regex = &validator.StringValue{Value: uuid}
 			}
 		}
 
 		p.P(`if !`, p.regexName(ccTypeName, fieldName), `.MatchString(`, variableName, `) {`)
 		p.In()
-		errorStr := "be a string conforming to regex " + strconv.Quote(fv.GetRegex())
+		errorStr := "be a string conforming to regex " + strconv.Quote(fv.GetRegex().GetValue())
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
-	if fv.StringNotEmpty != nil && fv.GetStringNotEmpty() {
+	if fv.GetStringNotEmpty() {
 		p.P(`if `, variableName, ` == "" {`)
 		p.In()
 		errorStr := "not be an empty string"
@@ -611,19 +611,19 @@ func (p *plugin) generateRepeatedCountValidator(variableName string, ccTypeName 
 		return
 	}
 	if fv.RepeatedCountMin != nil {
-		compareStr := fmt.Sprint(`if len(`, variableName, `) < `, fv.GetRepeatedCountMin(), ` {`)
+		compareStr := fmt.Sprint(`if len(`, variableName, `) < `, fv.GetRepeatedCountMin().GetValue(), ` {`)
 		p.P(compareStr)
 		p.In()
-		errorStr := fmt.Sprint(`contain at least `, fv.GetRepeatedCountMin(), ` elements`)
+		errorStr := fmt.Sprint(`contain at least `, fv.GetRepeatedCountMin().GetValue(), ` elements`)
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
 	if fv.RepeatedCountMax != nil {
-		compareStr := fmt.Sprint(`if len(`, variableName, `) > `, fv.GetRepeatedCountMax(), ` {`)
+		compareStr := fmt.Sprint(`if len(`, variableName, `) > `, fv.GetRepeatedCountMax().GetValue(), ` {`)
 		p.P(compareStr)
 		p.In()
-		errorStr := fmt.Sprint(`contain at most `, fv.GetRepeatedCountMax(), ` elements`)
+		errorStr := fmt.Sprint(`contain at most `, fv.GetRepeatedCountMax().GetValue(), ` elements`)
 		p.generateErrorString(variableName, fieldName, errorStr, fv)
 		p.Out()
 		p.P(`}`)
@@ -677,11 +677,11 @@ func (p *plugin) fieldIsProto3Map(file *generator.FileDescriptor, message *gener
 }
 
 func (p *plugin) validatorWithMessageExists(fv *validator.FieldValidator) bool {
-	return fv != nil && fv.MsgExists != nil && *(fv.MsgExists)
+	return fv.GetMsgExists()
 }
 
 func (p *plugin) validatorWithOnesignalUuidV1(fv *validator.FieldValidator) bool {
-	return fv != nil && fv.OnesignalUuidV1 != nil && *(fv.OnesignalUuidV1)
+	return fv.GetOnesignalUuidV1()
 }
 
 func (p *plugin) validatorWithNonRepeatedConstraint(fv *validator.FieldValidator) bool {
