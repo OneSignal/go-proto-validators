@@ -40,10 +40,11 @@ func (this *UUIDMsg) Validate() error {
 			return github_com_OneSignal_go_proto_validators.FieldError("Xyz", err)
 		}
 	}
-	if this.Abc != nil {
-		if err := github_com_OneSignal_go_proto_validators.CallValidatorIfExists(this.Abc); err != nil {
-			return github_com_OneSignal_go_proto_validators.FieldError("Abc", err)
+	for index, item := range this.Abc {
+		if item == "" {
+			return github_com_OneSignal_go_proto_validators.FieldError("Abc", fmt.Errorf(`value '%v' must not be an empty string at index %d`, item, index))
 		}
+		index += 1
 	}
 	return nil
 }

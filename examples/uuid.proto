@@ -7,7 +7,7 @@ message UUIDMsg {
   // user_id must be a valid version 4 UUID.
   string user_id = 1 [(validator.field) = {uuid_ver: { value: 4}, string_not_empty: true}];
   uuid.v1.UUID xyz = 2 [(validator.field) = {onesignal_uuid_v1: true}];
-  Foo abc = 3 [(validator.field) = {onesignal_uuid_v1: true}];
+  repeated string abc = 3 [(validator.field) = {string_not_empty: true}];
 }
 
 message Foo {}

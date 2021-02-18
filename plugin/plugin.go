@@ -226,7 +226,7 @@ func (p *plugin) generateProto2Message(file *generator.FileDescriptor, message *
 		if repeated {
 			p.generateRepeatedCountValidator(variableName, ccTypeName, fieldName, fieldValidator)
 			if field.IsMessage() || p.validatorWithNonRepeatedConstraint(fieldValidator) {
-				p.P(`for _, item := range `, variableName, `{`)
+				p.P(`for index, item := range `, variableName, `{`)
 				p.In()
 				variableName = "item"
 			}
@@ -250,15 +250,15 @@ func (p *plugin) generateProto2Message(file *generator.FileDescriptor, message *
 			}
 		}
 		if field.IsString() {
-			p.generateStringValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateStringValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if p.isSupportedInt(field) {
-			p.generateIntValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateIntValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if field.IsEnum() {
-			p.generateEnumValidator(field, variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateEnumValidator(field, variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if p.isSupportedFloat(field) {
-			p.generateFloatValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateFloatValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if field.IsBytes() {
-			p.generateLengthValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateLengthValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if field.IsMessage() {
 			if repeated && nullable {
 				variableName = "*(item)"
@@ -272,6 +272,9 @@ func (p *plugin) generateProto2Message(file *generator.FileDescriptor, message *
 		if repeated {
 			// end the repeated loop
 			if field.IsMessage() || p.validatorWithNonRepeatedConstraint(fieldValidator) {
+				// generate some dummy code to trick the compiler in case we don't
+				// use index as part of an error message.
+				p.P(`index += 1`)
 				// This internal 'if' cannot be refactored as it would change semantics with respect to the corresponding prelude 'if's
 				p.Out()
 				p.P(`}`)
@@ -332,7 +335,7 @@ func (p *plugin) generateProto3Message(file *generator.FileDescriptor, message *
 		if repeated {
 			p.generateRepeatedCountValidator(variableName, ccTypeName, fieldName, fieldValidator)
 			if field.IsMessage() || p.validatorWithNonRepeatedConstraint(fieldValidator) {
-				p.P(`for _, item := range `, variableName, `{`)
+				p.P(`for index, item := range `, variableName, `{`)
 				p.In()
 				variableName = "item"
 			}
@@ -345,15 +348,15 @@ func (p *plugin) generateProto3Message(file *generator.FileDescriptor, message *
 			}
 		}
 		if field.IsString() {
-			p.generateStringValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateStringValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if p.isSupportedInt(field) {
-			p.generateIntValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateIntValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if field.IsEnum() {
-			p.generateEnumValidator(field, variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateEnumValidator(field, variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if p.isSupportedFloat(field) {
-			p.generateFloatValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateFloatValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if field.IsBytes() {
-			p.generateLengthValidator(variableName, ccTypeName, fieldName, fieldValidator)
+			p.generateLengthValidator(variableName, ccTypeName, fieldName, repeated, fieldValidator)
 		} else if field.IsMessage() {
 			if p.validatorWithOnesignalUuidV1(fieldValidator) {
 				if field.TypeName != nil && *field.TypeName == ".uuid.v1.UUID" {
@@ -405,6 +408,9 @@ func (p *plugin) generateProto3Message(file *generator.FileDescriptor, message *
 			}
 		}
 		if repeated && (field.IsMessage() || p.validatorWithNonRepeatedConstraint(fieldValidator)) {
+			// generate some dummy code to trick the compiler in case we don't
+			// use index as part of an error message.
+			p.P(`index += 1`)
 			// end the repeated loop
 			p.Out()
 			p.P(`}`)
@@ -420,12 +426,12 @@ func (p *plugin) generateProto3Message(file *generator.FileDescriptor, message *
 	p.P(`}`)
 }
 
-func (p *plugin) generateIntValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
+func (p *plugin) generateIntValidator(variableName string, ccTypeName string, fieldName string, repeated bool, fv *validator.FieldValidator) {
 	if fv.IntGt != nil {
 		p.P(`if !(`, variableName, ` > `, &(fv.IntGt.Value), `) {`)
 		p.In()
 		errorStr := fmt.Sprintf(`be greater than '%d'`, fv.GetIntGt().GetValue())
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -433,7 +439,7 @@ func (p *plugin) generateIntValidator(variableName string, ccTypeName string, fi
 		p.P(`if !(`, variableName, ` < `, &(fv.IntLt.Value), `) {`)
 		p.In()
 		errorStr := fmt.Sprintf(`be less than '%d'`, fv.GetIntLt().GetValue())
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -441,24 +447,24 @@ func (p *plugin) generateIntValidator(variableName string, ccTypeName string, fi
 
 func (p *plugin) generateEnumValidator(
 	field *descriptor.FieldDescriptorProto,
-	variableName, ccTypeName, fieldName string,
+	variableName, ccTypeName, fieldName string, repeated bool,
 	fv *validator.FieldValidator) {
 	if fv.GetIsInEnum() {
 		enum := p.ObjectNamed(field.GetTypeName()).(*generator.EnumDescriptor)
 		p.P(`if _, ok := `, strings.Join(enum.TypeName(), "_"), "_name[int32(", variableName, ")]; !ok {")
 		p.In()
-		p.generateErrorString(variableName, fieldName, fmt.Sprintf("be a valid %s field", strings.Join(enum.TypeName(), "_")), fv)
+		p.generateErrorString(variableName, fieldName, repeated, fmt.Sprintf("be a valid %s field", strings.Join(enum.TypeName(), "_")), fv)
 		p.Out()
 		p.P(`}`)
 	}
 }
 
-func (p *plugin) generateLengthValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
+func (p *plugin) generateLengthValidator(variableName string, ccTypeName string, fieldName string, repeated bool, fv *validator.FieldValidator) {
 	if fv.LengthGt != nil {
 		p.P(`if !( len(`, variableName, `) > `, &(fv.LengthGt.Value), `) {`)
 		p.In()
 		errorStr := fmt.Sprintf(`have a length greater than '%d'`, fv.GetLengthGt().GetValue())
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -467,7 +473,7 @@ func (p *plugin) generateLengthValidator(variableName string, ccTypeName string,
 		p.P(`if !( len(`, variableName, `) < `, &(fv.LengthLt.Value), `) {`)
 		p.In()
 		errorStr := fmt.Sprintf(`have a length smaller than '%d'`, fv.GetLengthLt().GetValue())
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -476,13 +482,13 @@ func (p *plugin) generateLengthValidator(variableName string, ccTypeName string,
 		p.P(`if !( len(`, variableName, `) == `, &(fv.LengthEq.Value), `) {`)
 		p.In()
 		errorStr := fmt.Sprintf(`have a length equal to '%d'`, fv.GetLengthEq().GetValue())
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
 }
 
-func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
+func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, fieldName string, repeated bool, fv *validator.FieldValidator) {
 	upperIsStrict := true
 	lowerIsStrict := true
 
@@ -536,7 +542,7 @@ func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, 
 		}
 		p.P(compareStr)
 		p.In()
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -556,7 +562,7 @@ func (p *plugin) generateFloatValidator(variableName string, ccTypeName string, 
 		}
 		p.P(compareStr)
 		p.In()
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -577,7 +583,7 @@ func getUUIDRegex(version *int32) (string, error) {
 	}
 }
 
-func (p *plugin) generateStringValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
+func (p *plugin) generateStringValidator(variableName string, ccTypeName string, fieldName string, repeated bool, fv *validator.FieldValidator) {
 	if fv.Regex != nil || fv.UuidVer != nil {
 		if fv.UuidVer != nil {
 			uuid, err := getUUIDRegex(&fv.UuidVer.Value)
@@ -587,11 +593,10 @@ func (p *plugin) generateStringValidator(variableName string, ccTypeName string,
 				fv.Regex = &validator.StringValue{Value: uuid}
 			}
 		}
-
 		p.P(`if !`, p.regexName(ccTypeName, fieldName), `.MatchString(`, variableName, `) {`)
 		p.In()
 		errorStr := "be a string conforming to regex " + strconv.Quote(fv.GetRegex().GetValue())
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -599,11 +604,11 @@ func (p *plugin) generateStringValidator(variableName string, ccTypeName string,
 		p.P(`if `, variableName, ` == "" {`)
 		p.In()
 		errorStr := "not be an empty string"
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, repeated, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
-	p.generateLengthValidator(variableName, ccTypeName, fieldName, fv)
+	p.generateLengthValidator(variableName, ccTypeName, fieldName, repeated, fv)
 }
 
 func (p *plugin) generateRepeatedCountValidator(variableName string, ccTypeName string, fieldName string, fv *validator.FieldValidator) {
@@ -615,7 +620,7 @@ func (p *plugin) generateRepeatedCountValidator(variableName string, ccTypeName 
 		p.P(compareStr)
 		p.In()
 		errorStr := fmt.Sprint(`contain at least `, fv.GetRepeatedCountMin().GetValue(), ` elements`)
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, false, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
@@ -624,15 +629,19 @@ func (p *plugin) generateRepeatedCountValidator(variableName string, ccTypeName 
 		p.P(compareStr)
 		p.In()
 		errorStr := fmt.Sprint(`contain at most `, fv.GetRepeatedCountMax().GetValue(), ` elements`)
-		p.generateErrorString(variableName, fieldName, errorStr, fv)
+		p.generateErrorString(variableName, fieldName, false, errorStr, fv)
 		p.Out()
 		p.P(`}`)
 	}
 }
 
-func (p *plugin) generateErrorString(variableName string, fieldName string, specificError string, fv *validator.FieldValidator) {
+func (p *plugin) generateErrorString(variableName string, fieldName string, repeated bool, specificError string, fv *validator.FieldValidator) {
 	if fv.GetHumanError() == "" {
-		p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), ".Errorf(`value '%v' must ", specificError, "`", `, `, variableName, `))`)
+		if repeated {
+			p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), ".Errorf(`value '%v' must ", specificError, " at index %d`", `, `, variableName, `, index))`)
+		} else {
+			p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), ".Errorf(`value '%v' must ", specificError, "`", `, `, variableName, `))`)
+		}
 	} else {
 		p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), ".Errorf(`", fv.GetHumanError(), "`))")
 	}
@@ -694,18 +703,32 @@ func (p *plugin) validatorWithNonRepeatedConstraint(fv *validator.FieldValidator
 	for i := 0; i < v.NumField(); i++ {
 		fieldName := v.Type().Field(i).Name
 
-		// All known validators will have a pointer type and we should skip any fields
-		// that are not pointers (i.e unknown fields, etc) as well as 'nil' pointers that
-		// don't lead to anything.
-		if v.Type().Field(i).Type.Kind() != reflect.Ptr || v.Field(i).IsNil() {
-			continue
-		}
-
 		// Identify non-repeated constraints based on their name.
-		if fieldName != "RepeatedCountMin" && fieldName != "RepeatedCountMax" {
+		switch fieldName {
+		case "RepeatedCountMin", "RepeatedCountMax":
+			continue
+		case "StringNotEmpty":
+			// We only want to generate a for loop over the elements of the
+			// repeated string field if the validator is enabled. Proto3 is
+			// different in that primitive types are no longer optional, they
+			// will have a zero value if not set.
+			if v.Field(i).Bool() {
+				return true
+			} else {
+				continue
+			}
+		default:
+			// Most known validators will have a pointer type and we should skip any fields
+			// that are not pointers (i.e unknown fields, etc) as well as 'nil' pointers that
+			// don't lead to anything.
+			if v.Type().Field(i).Type.Kind() != reflect.Ptr || v.Field(i).IsNil() {
+				continue
+			}
 			return true
 		}
+
 	}
+	p.P("// default false")
 	return false
 }
 
