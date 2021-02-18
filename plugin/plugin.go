@@ -362,13 +362,21 @@ func (p *plugin) generateProto3Message(file *generator.FileDescriptor, message *
 				if field.TypeName != nil && *field.TypeName == ".uuid.v1.UUID" {
 					p.P(`if nil == `, variableName, `{`)
 					p.In()
-					p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), `.Errorf("nil UUID"))`)
+					if repeated {
+						p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), `.Errorf("nil UUID at index %d", index))`)
+					} else {
+						p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), `.Errorf("nil UUID"))`)
+					}
 					p.Out()
 					p.P(`} else {`)
 					p.In()
 					p.P(`if _, err := `, p.uuidPkg.Use(), `.FromBytes(`, variableName, `.Data); err != nil {`)
 					p.In()
-					p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `", err)`)
+					if repeated {
+						p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `",`, p.fmtPkg.Use(), `.Errorf("%v at index %d", err, index))`)
+					} else {
+						p.P(`return `, p.validatorPkg.Use(), `.FieldError("`, fieldName, `", err)`)
+					}
 					p.Out()
 					p.P(`}`)
 					p.Out()

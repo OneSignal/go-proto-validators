@@ -28,17 +28,20 @@ func (this *UUIDMsg) Validate() error {
 	if this.UserId == "" {
 		return github_com_OneSignal_go_proto_validators.FieldError("UserId", fmt.Errorf(`value '%v' must not be an empty string`, this.UserId))
 	}
-	if nil == this.Xyz {
-		return github_com_OneSignal_go_proto_validators.FieldError("Xyz", fmt.Errorf("nil UUID"))
-	} else {
-		if _, err := github_com_gofrs_uuid.FromBytes(this.Xyz.Data); err != nil {
-			return github_com_OneSignal_go_proto_validators.FieldError("Xyz", err)
+	for index, item := range this.Xyz {
+		if nil == item {
+			return github_com_OneSignal_go_proto_validators.FieldError("Xyz", fmt.Errorf("nil UUID at index %d", index))
+		} else {
+			if _, err := github_com_gofrs_uuid.FromBytes(item.Data); err != nil {
+				return github_com_OneSignal_go_proto_validators.FieldError("Xyz", fmt.Errorf("%v at index %d", err, index))
+			}
 		}
-	}
-	if this.Xyz != nil {
-		if err := github_com_OneSignal_go_proto_validators.CallValidatorIfExists(this.Xyz); err != nil {
-			return github_com_OneSignal_go_proto_validators.FieldError("Xyz", err)
+		if item != nil {
+			if err := github_com_OneSignal_go_proto_validators.CallValidatorIfExists(item); err != nil {
+				return github_com_OneSignal_go_proto_validators.FieldError("Xyz", err)
+			}
 		}
+		index += 1
 	}
 	for index, item := range this.Abc {
 		if item == "" {
