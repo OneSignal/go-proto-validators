@@ -429,7 +429,7 @@ func TestMsgExist(t *testing.T) {
 	someProto3.SomeEmbeddedExists = nil
 	if err := someProto3.Validate(); err == nil {
 		t.Fatalf("expected fail due to lacking SomeEmbeddedExists")
-	} else if !strings.HasPrefix(err.Error(), "invalid field SomeEmbeddedExists:") {
+	} else if !strings.HasPrefix(err.Error(), "invalid field someEmbeddedExists:") {
 		t.Fatalf("expected fieldError, got '%v'", err)
 	}
 }
@@ -458,7 +458,7 @@ func TestNestedError3(t *testing.T) {
 	someProto3.SomeEmbeddedExists.SomeValue = 101 // should be less than 101
 	if err := someProto3.Validate(); err == nil {
 		t.Fatalf("expected fail due to nested SomeEmbeddedExists.SomeValue being wrong")
-	} else if !strings.HasPrefix(err.Error(), "invalid field SomeEmbeddedExists.SomeValue:") {
+	} else if !strings.HasPrefix(err.Error(), "invalid field someEmbeddedExists.SomeValue:") {
 		t.Fatalf("expected fieldError, got '%v'", err)
 	}
 }
@@ -487,7 +487,7 @@ func TestOneOf_Required(t *testing.T) {
 	}
 	err := example.Validate()
 	assert.Error(t, err, "oneof.required should fail if none of the oneof fields are set")
-	assert.Contains(t, err.Error(), "Something", "error must err on the Something field")
+	assert.Contains(t, err.Error(), "something", "error must err on the Something field")
 }
 
 func TestOneOf_NestedMessage(t *testing.T) {
@@ -505,7 +505,7 @@ func TestOneOf_NestedMessage(t *testing.T) {
 	}
 	err := example.Validate()
 	assert.Error(t, err, "nested message in oneof should fail validation on ExternalMsg")
-	assert.Contains(t, err.Error(), "OneMsg.Identifier", "error must err on the ExternalMsg.Identifier")
+	assert.Contains(t, err.Error(), "one_msg.Identifier", "error must err on the ExternalMsg.Identifier")
 }
 
 func TestOneOf_NestedInt(t *testing.T) {
@@ -523,7 +523,7 @@ func TestOneOf_NestedInt(t *testing.T) {
 	}
 	err := example.Validate()
 	assert.Error(t, err, "nested message in oneof should fail validation on ThreeInt")
-	assert.Contains(t, err.Error(), "ThreeInt", "error must err on the ThreeInt.ThreeInt")
+	assert.Contains(t, err.Error(), "three_int", "error must err on the ThreeInt.ThreeInt")
 }
 
 func TestOneOf_Passes(t *testing.T) {
@@ -552,7 +552,7 @@ func TestOneOf_Regex(t *testing.T) {
 	}
 	err := example.Validate()
 	assert.Error(t, err, "regex applied to oneof field should fail validation on FiveRegex")
-	assert.Contains(t, err.Error(), "FiveRegex", "error must err on the FiveRegex")
+	assert.Contains(t, err.Error(), "five_regex", "error must err on the FiveRegex")
 
 	example = &OneOfMessage3{
 		SomeInt: 30,
