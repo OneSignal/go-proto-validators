@@ -18,7 +18,7 @@ var _ = math.Inf
 
 func (this *SomeMsg) Validate() error {
 	if _, ok := Action_name[int32(this.Do)]; !ok {
-		return github_com_OneSignal_go_proto_validators.FieldError("Do", fmt.Errorf(`value '%v' must be a valid Action field`, this.Do))
+		return github_com_OneSignal_go_proto_validators.FieldError("do", fmt.Errorf(`value '%v' must be a valid Action field`, this.Do))
 	}
 	return nil
 }
